@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>新标签页</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 头部区域 -->
+    <header class="header">
+      <div class="header-left">
+        <!-- 点击时间区域打开设置 -->
+        <div class="time-display" id="timeDisplay" title="点击打开设置"></div>
+      </div>
+      <div class="header-center">
+        <div class="search-container">
+          <input type="text" id="searchInput" placeholder="搜索书签..." class="search-input">
+          <span class="search-icon">🔍</span>
+        </div>
+      </div>
+    </header>
+    <!-- 书签展示区域 -->
+    <main class="bookmarks-container">
+      <div class="bookmarks-tree" id="bookmarksTree"></div>
+    </main>
+  </div>
+  <!-- 设置模态框 -->
+  <div class="modal" id="settingsModal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>⚙️ 设置</h2>
+        <button class="close-btn" id="closeSettings">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="setting-section">
+          <h3>显示模式</h3>
+          <label class="radio-option">
+            <input type="radio" name="displayMode" value="bookmarkBar">
+            <span>仅显示书签栏</span>
+          </label>
+          <label class="radio-option">
+            <input type="radio" name="displayMode" value="all">
+            <span>显示所有书签</span>
+          </label>
+        </div>
+        <div class="setting-section">
+          <h3>文件夹列表</h3>
+          <div class="folder-list" id="folderList"></div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="applySettings">应用设置</button>
+      </div>
+    </div>
+  </div>
+  <script src="script.js"></script>
+</body>
+</html>
