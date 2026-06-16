@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "书签新标签页",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "在新标签页展示浏览器收藏夹书签，快速访问您的收藏",
   "chrome_url_overrides": {
     "newtab": "newtab.html"

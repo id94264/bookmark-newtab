@@ -1,9 +1,70 @@
+// ====== Favicon缓存配置 ======
+const FAVICON_CACHE_KEY = "bookmark_favicon_cache";
+const CACHE_EXPIRE_DAY = 7; // 7天缓存过期
+const CACHE_EXPIRE_MS = CACHE_EXPIRE_DAY * 24 * 60 * 60 * 1000;
+
+// 获取缓存池
+function getFaviconCache() {
+  const cacheStr = localStorage.getItem(FAVICON_CACHE_KEY);
+  return cacheStr ? JSON.parse(cacheStr) : {};
+}
+
+// 写入缓存
+function setFaviconCache(cacheObj) {
+  localStorage.setItem(FAVICON_CACHE_KEY, JSON.stringify(cacheObj));
+}
+
+// 判断缓存是否过期
+function isCacheExpired(updateTime) {
+  return Date.now() - updateTime > CACHE_EXPIRE_MS;
+}
+
+// 根据书签url获取favicon（带缓存）
+async function getBookmarkFavicon(pageUrl) {
+  if (!pageUrl) return "";
+  const cache = getFaviconCache();
+  // 用页面完整url作为唯一key
+  const cacheKey = pageUrl;
+
+  // 缓存存在且未过期，直接返回base64图标
+  if (cache[cacheKey] && !isCacheExpired(cache[cacheKey].updateTime)) {
+    return cache[cacheKey].imgBase64;
+  }
+
+  // 缓存不存在/过期，重新拉取图标
+  try {
+    const urlObj = new URL(pageUrl);
+    const faviconUrl = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=64`;
+    const res = await fetch(faviconUrl);
+    const blob = await res.blob();
+    
+    // 转base64存入缓存
+    const reader = new FileReader();
+    await new Promise((resolve, reject) => {
+      reader.onload = resolve;
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+    
+    const base64Img = reader.result;
+    // 更新缓存
+    cache[cacheKey] = {
+      imgBase64: base64Img,
+      updateTime: Date.now()
+    };
+    setFaviconCache(cache);
+    return base64Img;
+  } catch (err) {
+    console.log("获取图标失败", pageUrl, err);
+    return "";
+  }
+}
+
 // 设置配置
 let settings = {
   showFolders: [],
   defaultView: 'bookmarkBar'
 };
-
 // 加载设置
 function loadSettings() {
   const saved = localStorage.getItem('bookmarkSettings');
@@ -11,12 +72,10 @@ function loadSettings() {
     settings = JSON.parse(saved);
   }
 }
-
 // 保存设置
 function saveSettings() {
   localStorage.setItem('bookmarkSettings', JSON.stringify(settings));
 }
-
 // 更新时间显示
 function updateTime() {
   const now = new Date();
@@ -40,7 +99,6 @@ function updateTime() {
     <div class="date-small">${dateStr}</div>
   `;
 }
-
 // 统计书签数量
 function countBookmarks(node) {
   let count = 0;
@@ -52,7 +110,6 @@ function countBookmarks(node) {
   }
   return count;
 }
-
 // 收集所有文件夹
 function collectFolders(node, folders = []) {
   if (!node.url && node.title) {
@@ -69,7 +126,6 @@ function collectFolders(node, folders = []) {
   }
   return folders;
 }
-
 // ==================== 最终修复版：直接控制显示/隐藏 ====================
 function renderBookmarks(bookmarkNodes, container, level = 0) {
   for (const bookmark of bookmarkNodes) {
@@ -124,23 +180,19 @@ function renderBookmarks(bookmarkNodes, container, level = 0) {
       };
     }
     
-    // ====== 2. 渲染书签链接 ======
+    // ====== 2. 渲染书签链接（带缓存） ======
     else if (bookmark.url) {
       const link = document.createElement('a');
       link.className = 'bookmark-link';
       link.href = bookmark.url;
       link.target = '_blank';
       
-      try {
-        const url = new URL(bookmark.url);
-        const favicon = document.createElement('img');
-        favicon.className = 'favicon';
-        favicon.src = `https://www.google.com/s2/favicons?domain=${url.hostname}&sz=64`;
-        favicon.onerror = function() {
-          this.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23999"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>';
-        };
-        link.appendChild(favicon);
-      } catch (e) {}
+      // Favicon图标 - 使用缓存
+      const favicon = document.createElement('img');
+      favicon.className = 'favicon';
+      // 先设置默认占位图标
+      favicon.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%23999"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/></svg>';
+      link.appendChild(favicon);
       
       const title = document.createElement('span');
       title.className = 'bookmark-title';
@@ -148,10 +200,16 @@ function renderBookmarks(bookmarkNodes, container, level = 0) {
       link.appendChild(title);
       
       container.appendChild(link);
+      
+      // 异步加载缓存图标
+      getBookmarkFavicon(bookmark.url).then(base64 => {
+        if (base64) {
+          favicon.src = base64;
+        }
+      });
     }
   }
 }
-
 // 搜索书签
 function searchBookmarks(query) {
   const bookmarksTree = document.getElementById('bookmarksTree');
@@ -195,7 +253,6 @@ function searchBookmarks(query) {
     folder.style.display = (visibleLinks.length === 0 && visibleFolders.length === 0) ? 'none' : '';
   });
 }
-
 // 渲染设置面板文件夹列表
 function renderFolderList() {
   chrome.bookmarks.getTree((bookmarkTreeNodes) => {
@@ -215,18 +272,15 @@ function renderFolderList() {
     });
   });
 }
-
 // 打开/关闭设置
 function openSettings() {
   document.getElementById('settingsModal').classList.add('show');
   document.querySelector(`input[name="displayMode"][value="${settings.defaultView}"]`).checked = true;
   renderFolderList();
 }
-
 function closeSettings() {
   document.getElementById('settingsModal').classList.remove('show');
 }
-
 // 应用设置
 function applySettings() {
   const displayMode = document.querySelector('input[name="displayMode"]:checked').value;
@@ -240,7 +294,6 @@ function applySettings() {
   document.getElementById('bookmarksTree').innerHTML = '';
   loadAndRenderBookmarks();
 }
-
 // 加载并渲染
 function loadAndRenderBookmarks() {
   chrome.bookmarks.getTree((bookmarkTreeNodes) => {
@@ -248,7 +301,6 @@ function loadAndRenderBookmarks() {
     renderBookmarks(bookmarkTreeNodes[0].children, bookmarksTree);
   });
 }
-
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
